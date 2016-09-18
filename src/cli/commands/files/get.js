@@ -103,7 +103,6 @@ module.exports = {
           toPull.source(stream),
           pull.asyncMap(fileHandler(dir)),
           pull.onEnd((err) => {
-            console.log('finished writing')
             if (err) {
               throw err
             }

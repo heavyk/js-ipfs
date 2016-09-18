@@ -10,11 +10,7 @@ module.exports = (env) => function ipfs () {
     env: env,
     timeout: 60 * 1000
   }).then((res) => {
-    expect(res).to.have.property('stderr', '')
-
-    if (res.error) {
-      throw res.error
-    }
+    expect(res.stderr).to.be.eql('')
 
     return res.stdout
   })

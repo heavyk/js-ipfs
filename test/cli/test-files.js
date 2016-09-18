@@ -8,7 +8,7 @@ const fs = require('fs')
 const path = require('path')
 const describeOnlineAndOffline = require('../utils/on-and-off')
 
-describe.only('files', () => {
+describe('files', () => {
   const env = _.clone(process.env)
   env.IPFS_PATH = repoPath
   const ipfs = require('../utils/ipfs')(env)

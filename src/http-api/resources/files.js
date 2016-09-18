@@ -10,7 +10,7 @@ const pull = require('pull-stream')
 const toPull = require('stream-to-pull-stream')
 const pushable = require('pull-pushable')
 const EOL = require('os').EOL
-const through = require('through2')
+const toStream = require('pull-stream-to-stream')
 
 exports = module.exports
 
@@ -87,33 +87,35 @@ exports.get = {
 
       pull(
         stream,
-        pull.asyncMap((file) => {
-        const header = {name: file.path}
-        if (!file.content) {
-          header.type = 'directory'
-          pack.entry(header)
-          cb()
-        } else {
-          header.size = file.size
-          const packStream = pack.entry(header, cb)
-          if (!packStream) {
-            // this happens if the request is aborted
-            // we just skip things then
-            log('other side hung up')
-            return cb()
+        pull.asyncMap((file, cb) => {
+          const header = {name: file.path}
+          if (!file.content) {
+            header.type = 'directory'
+            pack.entry(header)
+            cb()
+          } else {
+            header.size = file.size
+            const packStream = pack.entry(header, cb)
+            if (!packStream) {
+              // this happens if the request is aborted
+              // we just skip things then
+              log('other side hung up')
+              return cb()
+            }
+            toStream.source(file.content).pipe(packStream)
           }
-          file.content.pipe(packStream)
-        }
-      }), (err) => {
-        if (err) {
-          log.error(err)
-          pack.emit('error', err)
-          pack.destroy()
-          return
-        }
-        console.log('finalizinng')
-        pack.finalize()
-      })
+        }),
+        pull.onEnd((err) => {
+          if (err) {
+            log.error(err)
+            pack.emit('error', err)
+            pack.destroy()
+            return
+          }
+
+          pack.finalize()
+        })
+      )
 
       // the reply must read the tar stream,
       // to pull values through
