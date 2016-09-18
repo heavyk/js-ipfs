@@ -3,25 +3,21 @@
 
 const expect = require('chai').expect
 const repoPath = require('./index').repoPath
-const _ = require('lodash')
 const fs = require('fs')
 const path = require('path')
 const describeOnlineAndOffline = require('../utils/on-and-off')
+const ipfs = require('../utils/ipfs')(repoPath)
 
 describe('files', () => {
-  const env = _.clone(process.env)
-  env.IPFS_PATH = repoPath
-  const ipfs = require('../utils/ipfs')(env)
-
   describeOnlineAndOffline(repoPath, () => {
     it('cat', () => {
-      return ipfs('files', 'cat', 'QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o').then((out) => {
+      return ipfs('files cat QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o').then((out) => {
         expect(out).to.be.eql('hello world')
       })
     })
 
     it('get', () => {
-      return ipfs('files', 'get', 'QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o').then((out) => {
+      return ipfs('files get QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o').then((out) => {
         expect(out).to.be.eql(
           'Saving file(s) to QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o'
         )
@@ -38,7 +34,7 @@ describe('files', () => {
     })
 
     it('add', () => {
-      return ipfs('files', 'add', 'src/init-files/init-docs/readme').then((out) => {
+      return ipfs('files add src/init-files/init-docs/readme').then((out) => {
         expect(out).to.be.eql(
           'added QmPZ9gcCEpqKTo6aq61g2nXGUhM4iCL3ewB6LDXZCtioEB readme'
         )
@@ -46,7 +42,7 @@ describe('files', () => {
     })
 
     it('add recursively', () => {
-      return ipfs('files', 'add', '-r', 'src/init-files/init-docs').then((out) => {
+      return ipfs('files add -r src/init-files/init-docs').then((out) => {
         expect(out).to.be.eql([
           'added QmYE7xo6NxbHEVEHej1yzxijYaNY51BaeKxjXxn6Ssa6Bs init-docs/tour/0.0-intro',
           'added QmciSU8hfpAXKjvK5YLUSwApomGSWN5gFbP4EpDAEzu2Te init-docs/tour',
