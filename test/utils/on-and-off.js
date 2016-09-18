@@ -8,7 +8,7 @@ module.exports = function onlineAndOffline (repoPath, tests) {
     tests()
   })
 
-  describe.only('api running', () => {
+  describe('api running', () => {
     let httpAPI
 
     before((done) => {
