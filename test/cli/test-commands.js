@@ -3,7 +3,8 @@
 
 const expect = require('chai').expect
 const repoPath = require('./index').repoPath
-const ipfs = require('../utils/ipfs')(repoPath)
+const ipfsBase = require('../utils/ipfs')
+const ipfs = ipfsBase(repoPath)
 const describeOnlineAndOffline = require('../utils/on-and-off')
 
 describe('commands', () => {
@@ -14,13 +15,12 @@ describe('commands', () => {
       })
     })
   })
-  it('list the commands even if not in the same dir', (done) => {
-    nexpect.spawn('node', [process.cwd() + '/src/cli/bin.js', 'commands'], {cwd: '/tmp'})
-      .run((err, stdout, exitcode) => {
-        expect(err).to.not.exist
-        expect(exitcode).to.equal(0)
-        expect(stdout.length).to.equal(56)
-        done()
-      })
+
+  it('list the commands even if not in the same dir', () => {
+    return ipfsBase(repoPath, {
+      cwd: '/tmp'
+    })('commands').then((out) => {
+      expect(out.split('\n').length).to.equal(56)
+    })
   })
 })

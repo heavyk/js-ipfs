@@ -4,15 +4,17 @@ const execa = require('execa')
 const expect = require('chai').expect
 const _ = require('lodash')
 
-module.exports = (repoPath) => {
+module.exports = (repoPath, opts) => {
   const env = _.clone(process.env)
   env.IPFS_PATH = repoPath
 
-  const exec = (args) => execa(`${process.cwd()}/src/cli/bin.js`, args, {
+  const config = Object.assign({}, {
     stipEof: true,
     env: env,
     timeout: 60 * 1000
-  })
+  }, opts)
+
+  const exec = (args) => execa(`${process.cwd()}/src/cli/bin.js`, args, config)
 
   function ipfs () {
     let args = Array.from(arguments)
