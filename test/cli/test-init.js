@@ -35,7 +35,7 @@ describe('init', function () {
   })
 
   it('bits', (done) => {
-    nexpect.spawn('node', [process.cwd() + '/src/cli/bin.js', 'init', '--bits', '512'], {env})
+    nexpect.spawn('node', [process.cwd() + '/src/cli/bin.js', 'init', '--bits', '1024'], {env})
       .run((err, stdout, exitcode) => {
         expect(err).to.not.exist
         done()
@@ -43,7 +43,7 @@ describe('init', function () {
   })
 
   it('empty', (done) => {
-    nexpect.spawn('node', [process.cwd() + '/src/cli/bin.js', 'init', '--bits', '512', '--empty-repo', 'true'], {env})
+    nexpect.spawn('node', [process.cwd() + '/src/cli/bin.js', 'init', '--bits', '1024', '--empty-repo', 'true'], {env})
       .run((err, stdout, exitcode) => {
         expect(err).to.not.exist
         expect(repoExistsSync('blocks')).to.equal(false)
