@@ -5,7 +5,7 @@ const expect = require('chai').expect
 const nexpect = require('nexpect')
 const Block = require('ipfs-block')
 const _ = require('lodash')
-const bs58 = require('bs58')
+const mh = require('multihashes')
 
 const HttpAPI = require('../../src/http-api')
 const createTempNode = require('../utils/temp-node')
@@ -27,14 +27,18 @@ describe('bitswap', function () {
   })
 
   describe('api running', () => {
-    const block = new Block('hello')
-    const key = bs58.encode(block.key)
-
+    let key
     let httpAPI
 
     before((done) => {
-      httpAPI = new HttpAPI(repoPath)
-      httpAPI.start(done)
+      Block.create('hello', (err, block) => {
+        if (err) {
+          return done(err)
+        }
+        key = mh.toB58String(block.key)
+        httpAPI = new HttpAPI(repoPath)
+        httpAPI.start(done)
+      })
     })
 
     after((done) => {

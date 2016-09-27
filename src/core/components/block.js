@@ -13,13 +13,23 @@ module.exports = function block (self) {
       if (Array.isArray(block)) {
         return callback(new Error('Array is not supported'))
       }
+
       if (Buffer.isBuffer(block)) {
-        block = new Block(block)
+        Block.create(block, put)
+        return
       }
 
-      self._blockS.put(block, (err) => {
-        callback(err, block)
-      })
+      put(null, block)
+
+      function put (err, block) {
+        if (err) {
+          return callback(err)
+        }
+
+        self._blockS.put(block, (err) => {
+          callback(err, block)
+        })
+      }
     },
     del: (hash, callback) => {
       hash = cleanHash(hash)
