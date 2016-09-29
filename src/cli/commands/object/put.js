@@ -3,23 +3,22 @@
 const utils = require('../../utils')
 const bl = require('bl')
 const fs = require('fs')
+const waterfall = require('run-waterfall')
 const debug = require('debug')
 const log = debug('cli:object')
 log.error = debug('cli:object:error')
 
 function putNode (buf, enc) {
-  utils.getIPFS((err, ipfs) => {
+  waterfall([
+    (cb) => utils.getIPFS(cb),
+    (ipfs, cb) => ipfs.object.put(buf, {enc}, cb),
+    (node, cb) => node.toJSON(cb)
+  ], (err, node) => {
     if (err) {
       throw err
     }
 
-    ipfs.object.put(buf, {enc}, (err, node) => {
-      if (err) {
-        throw err
-      }
-
-      console.log('added', node.toJSON().Hash)
-    })
+    console.log('added', node.Hash)
   })
 }
 

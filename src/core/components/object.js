@@ -82,7 +82,7 @@ module.exports = function object (self) {
     new: promisify((cb) => {
       const node = new DAGNode()
 
-      self._dagS.put(node, function (err) {
+      self._dagS.put(node, (err) => {
         if (err) {
           return cb(err)
         }
@@ -119,13 +119,11 @@ module.exports = function object (self) {
         return cb(new Error('obj not recognized'))
       }
 
-      self._dagS.put(node, (err, block) => {
-        if (err) {
-          return cb(err)
-        }
-
-        self.object.get(node.multihash(), cb)
-      })
+      waterfall([
+        (cb) => self._dagS.put(node, cb),
+        (cb) => node.multihash(cb),
+        (digest, cb) => self.object.get(digest, cb)
+      ], cb)
     }),
 
     get: promisify((multihash, options, cb) => {
@@ -180,23 +178,27 @@ module.exports = function object (self) {
         options = {}
       }
 
-      self.object.get(multihash, options, (err, node) => {
-        if (err) {
-          return cb(err)
+      waterfall([
+        (cb) => self.object.get(multihash, options, cb),
+        (node, cb) => {
+          const blockSize = node.marshal().length
+          const linkLength = node.links.reduce((a, l) => a + l.size, 0)
+          node.toJSON((err, json) => {
+            if (err) {
+              return cb(err)
+            }
+
+            cb(null, {
+              Hash: json.Hash,
+              NumLinks: node.links.length,
+              BlockSize: blockSize,
+              LinksSize: blockSize - node.data.length,
+              DataSize: node.data.length,
+              CumulativeSize: blockSize + linkLength
+            })
+          })
         }
-
-        const blockSize = node.marshal().length
-        const linkLength = node.links.reduce((a, l) => a + l.size, 0)
-
-        cb(null, {
-          Hash: node.toJSON().Hash,
-          NumLinks: node.links.length,
-          BlockSize: blockSize,
-          LinksSize: blockSize - node.data.length,
-          DataSize: node.data.length,
-          CumulativeSize: blockSize + linkLength
-        })
-      })
+      ], cb)
     }),
 
     patch: promisify({

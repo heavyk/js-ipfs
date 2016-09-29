@@ -1,3 +1,4 @@
+/* eslint max-nested-callbacks: ["error", 8] */
 /* eslint-env mocha */
 'use strict'
 
@@ -5,17 +6,22 @@ const expect = require('chai').expect
 const fs = require('fs')
 const DAGLink = require('ipfs-merkle-dag').DAGLink
 
+function asJson (cb) {
+  return (err, result) => {
+    expect(err).to.not.exist
+    result.toJSON((cb))
+  }
+}
 module.exports = (ctl) => {
   describe('.object', () => {
     it('.new', (done) => {
-      ctl.object.new((err, result) => {
+      ctl.object.new(asJson((err, res) => {
         expect(err).to.not.exist
-        const res = result.toJSON()
         expect(res.Hash)
           .to.equal('QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n')
         expect(res.Links).to.be.eql([])
         done()
-      })
+      }))
     })
 
     describe('.get', () => {
@@ -34,13 +40,12 @@ module.exports = (ctl) => {
       })
 
       it('returns value', (done) => {
-        ctl.object.get('QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n', {enc: 'base58'}, (err, result) => {
+        ctl.object.get('QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n', {enc: 'base58'}, asJson((err, res) => {
           expect(err).to.not.exist
-          const res = result.toJSON()
           expect(res.Links).to.be.eql([])
           expect(res.Data).to.equal('')
           done()
-        })
+        }))
       })
     })
 
@@ -67,11 +72,11 @@ module.exports = (ctl) => {
           Size: 68
         }
 
-        ctl.object.put(filePath, {enc: 'json'}, (err, res) => {
+        ctl.object.put(filePath, {enc: 'json'}, asJson((err, res) => {
           expect(err).not.to.exist
-          expect(res.toJSON()).to.deep.equal(expectedResult)
+          expect(res).to.deep.equal(expectedResult)
           done()
-        })
+        }))
       })
     })
 
@@ -185,11 +190,11 @@ module.exports = (ctl) => {
           Size: 19
         }
 
-        ctl.object.patch.appendData(key, filePath, {enc: 'base58'}, (err, res) => {
+        ctl.object.patch.appendData(key, filePath, {enc: 'base58'}, asJson((err, res) => {
           expect(err).not.to.exist
-          expect(res.toJSON()).to.deep.equal(expectedResult)
+          expect(res).to.deep.equal(expectedResult)
           done()
-        })
+        }))
       })
     })
 
@@ -220,11 +225,11 @@ module.exports = (ctl) => {
           Size: 19
         }
 
-        ctl.object.patch.setData(key, filePath, {enc: 'base58'}, (err, res) => {
+        ctl.object.patch.setData(key, filePath, {enc: 'base58'}, asJson((err, res) => {
           expect(err).not.to.exist
-          expect(res.toJSON()).to.deep.equal(expectedResult)
+          expect(res).to.deep.equal(expectedResult)
           done()
-        })
+        }))
       })
     })
 
@@ -259,9 +264,8 @@ module.exports = (ctl) => {
         const name = 'foo'
         const ref = 'QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn'
         const link = new DAGLink(name, 10, ref)
-        ctl.object.patch.addLink(root, link, {enc: 'base58'}, (err, result) => {
+        ctl.object.patch.addLink(root, link, {enc: 'base58'}, asJson((err, res) => {
           expect(err).not.to.exist
-          const res = result.toJSON()
           expect(res.Hash).to.equal('QmdVHE8fUD6FLNLugtNxqDFyhaCgdob372hs6BYEe75VAK')
           expect(res.Links[0]).to.deep.equal({
             Name: 'foo',
@@ -269,7 +273,7 @@ module.exports = (ctl) => {
             Size: 4
           })
           done()
-        })
+        }))
       })
     })
 
@@ -302,11 +306,11 @@ module.exports = (ctl) => {
         const root = 'QmdVHE8fUD6FLNLugtNxqDFyhaCgdob372hs6BYEe75VAK'
         const link = new DAGLink('foo')
 
-        ctl.object.patch.rmLink(root, link, {enc: 'base58'}, (err, res) => {
+        ctl.object.patch.rmLink(root, link, {enc: 'base58'}, asJson((err, res) => {
           expect(err).not.to.exist
-          expect(res.toJSON().Hash).to.equal('QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n')
+          expect(res.Hash).to.equal('QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n')
           done()
-        })
+        }))
       })
     })
   })

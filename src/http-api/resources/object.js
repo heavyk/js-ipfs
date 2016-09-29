@@ -4,6 +4,8 @@ const bs58 = require('bs58')
 const multipart = require('ipfs-multipart')
 const mDAG = require('ipfs-merkle-dag')
 const DAGLink = mDAG.DAGLink
+const waterfall = require('run-waterfall')
+const parallel = require('run-parallel')
 const debug = require('debug')
 const log = debug('http-api:object')
 log.error = debug('http-api:object:error')
@@ -31,7 +33,11 @@ exports.parseKey = (request, reply) => {
 }
 
 exports.new = (request, reply) => {
-  request.server.app.ipfs.object.new((err, node) => {
+  const ipfs = request.server.app.ipfs
+  waterfall([
+    (cb) => ipfs.object.new(cb),
+    (node, cb) => node.toJSON(cb)
+  ], (err, res) => {
     if (err) {
       log.error(err)
       return reply({
@@ -40,7 +46,7 @@ exports.new = (request, reply) => {
       }).code(500)
     }
 
-    return reply(node.toJSON())
+    return reply(res)
   })
 }
 
@@ -52,8 +58,12 @@ exports.get = {
   handler: (request, reply) => {
     const key = request.pre.args.key
     const enc = request.query.enc || 'base58'
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.get(key, {enc}, (err, node) => {
+    waterfall([
+      (cb) => ipfs.object.get(key, {enc}, cb),
+      (node, cb) => node.toJSON(cb)
+    ], (err, res) => {
       if (err) {
         log.error(err)
         return reply({
@@ -62,7 +72,6 @@ exports.get = {
         }).code(500)
       }
 
-      const res = node.toJSON()
       res.Data = res.Data ? res.Data.toString() : ''
       return reply(res)
     })
@@ -85,7 +94,12 @@ exports.put = {
       fileStream.on('data', (data) => {
         if (enc === 'protobuf') {
           const n = new DAGNode().unMarshal(data)
-          file = new Buffer(JSON.stringify(n.toJSON()))
+          n.toJSON((err, json) => {
+            if (err) {
+              throw err
+            }
+            file = new Buffer(JSON.stringify(json))
+          })
         } else {
           file = data
         }
@@ -114,8 +128,12 @@ exports.put = {
   handler: (request, reply) => {
     const node = request.pre.args.node
     const dagNode = new DAGNode(new Buffer(node.Data), node.Links)
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.put(dagNode, (err, obj) => {
+    parallel([
+      (cb) => ipfs.object.put(dagNode, cb),
+      (cb) => dagNode.toJSON(cb)
+    ], (err, res) => {
       if (err) {
         log.error(err)
         return reply({
@@ -123,7 +141,8 @@ exports.put = {
           Code: 0
         }).code(500)
       }
-      return reply(dagNode.toJSON())
+
+      return reply(res[1])
     })
   }
 }
@@ -179,8 +198,12 @@ exports.links = {
   // main route handler which is called after the above `parseArgs`, but only if the args were valid
   handler: (request, reply) => {
     const key = request.pre.args.key
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.get(key, (err, node) => {
+    waterfall([
+      (cb) => ipfs.object.get(key, cb),
+      (node, cb) => node.toJSON(cb)
+    ], (err, res) => {
       if (err) {
         log.error(err)
         return reply({
@@ -189,7 +212,6 @@ exports.links = {
         }).code(500)
       }
 
-      const res = node.toJSON()
       return reply({
         Hash: res.Hash,
         Links: res.Links
@@ -244,8 +266,12 @@ exports.patchAppendData = {
   handler: (request, reply) => {
     const key = request.pre.args.key
     const data = request.pre.args.data
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.patch.appendData(key, data, (err, node) => {
+    waterfall([
+      (cb) => ipfs.object.patch.appendData(key, data, cb),
+      (node, cb) => node.toJSON(cb)
+    ], (err, res) => {
       if (err) {
         log.error(err)
 
@@ -255,7 +281,7 @@ exports.patchAppendData = {
         }).code(500)
       }
 
-      return reply(node.toJSON())
+      return reply(res)
     })
   }
 }
@@ -268,8 +294,12 @@ exports.patchSetData = {
   handler: (request, reply) => {
     const key = request.pre.args.key
     const data = request.pre.args.data
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.patch.setData(key, data, (err, node) => {
+    waterfall([
+      (cb) => ipfs.object.patch.setData(key, data, cb),
+      (node, cb) => node.toJSON(cb)
+    ], (err, res) => {
       if (err) {
         log.error(err)
 
@@ -279,7 +309,6 @@ exports.patchSetData = {
         }).code(500)
       }
 
-      const res = node.toJSON()
       return reply({
         Hash: res.Hash,
         Links: res.Links
@@ -329,8 +358,9 @@ exports.patchAddLink = {
     const root = request.pre.args.root
     const name = request.pre.args.name
     const ref = request.pre.args.ref
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.get(ref, (err, linkedObj) => {
+    ipfs.object.get(ref, (err, linkedObj) => {
       if (err) {
         log.error(err)
         return reply({
@@ -339,9 +369,17 @@ exports.patchAddLink = {
         }).code(500)
       }
 
-      const link = new DAGLink(name, linkedObj.size(), linkedObj.multihash())
-
-      request.server.app.ipfs.object.patch.addLink(root, link, (err, node) => {
+      waterfall([
+        (cb) => parallel([
+          (cb) => linkedObj.size(cb),
+          (cb) => linkedObj.multihash(cb)
+        ], cb),
+        (stats, cb) => {
+          cb(null, new DAGLink(name, stats[0], stats[1]))
+        },
+        (link, cb) => ipfs.object.patch.addLink(root, link, cb),
+        (node, cb) => node.toJSON(cb)
+      ], (err, res) => {
         if (err) {
           log.error(err)
 
@@ -351,7 +389,7 @@ exports.patchAddLink = {
           }).code(500)
         }
 
-        return reply(node.toJSON())
+        return reply(res)
       })
     })
   }
@@ -389,8 +427,12 @@ exports.patchRmLink = {
   handler: (request, reply) => {
     const root = request.pre.args.root
     const link = request.pre.args.link
+    const ipfs = request.server.app.ipfs
 
-    request.server.app.ipfs.object.patch.rmLink(root, link, (err, node) => {
+    waterfall([
+      (cb) => ipfs.object.patch.rmLink(root, link, cb),
+      (node, cb) => node.toJSON(cb)
+    ], (err, res) => {
       if (err) {
         log.error(err)
 
@@ -400,7 +442,7 @@ exports.patchRmLink = {
         }).code(500)
       }
 
-      return reply(node.toJSON())
+      return reply(res)
     })
   }
 }

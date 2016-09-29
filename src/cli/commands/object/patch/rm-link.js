@@ -1,5 +1,6 @@
 'use strict'
 
+const waterfall = require('run-waterfall')
 const DAGLink = require('ipfs-merkle-dag').DAGLink
 const utils = require('../../../utils')
 const debug = require('debug')
@@ -14,20 +15,18 @@ module.exports = {
   builder: {},
 
   handler (argv) {
-    utils.getIPFS((err, ipfs) => {
+    const dLink = new DAGLink(argv.link)
+
+    waterfall([
+      (cb) => utils.getIPFS(cb),
+      (ipfs, cb) => ipfs.object.patch.rmLink(argv.root, dLink, {enc: 'base58'}, cb),
+      (node, cb) => node.toJSON(cb)
+    ], (err, node) => {
       if (err) {
         throw err
       }
 
-      const dLink = new DAGLink(argv.link)
-
-      ipfs.object.patch.rmLink(argv.root, dLink, {enc: 'base58'}, (err, node) => {
-        if (err) {
-          throw err
-        }
-
-        console.log(node.toJSON().Hash)
-      })
+      console.log(node.Hash)
     })
   }
 }

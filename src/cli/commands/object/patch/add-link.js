@@ -4,6 +4,8 @@ const utils = require('../../../utils')
 const debug = require('debug')
 const log = debug('cli:object')
 const mDAG = require('ipfs-merkle-dag')
+const waterfall = require('run-waterfall')
+const parallel = require('run-parallel')
 const DAGLink = mDAG.DAGLink
 log.error = debug('cli:object:error')
 
@@ -15,23 +17,29 @@ module.exports = {
   builder: {},
 
   handler (argv) {
-    utils.getIPFS((err, ipfs) => {
+    waterfall([
+      (cb) => utils.getIPFS(cb),
+      (ipfs, cb) => waterfall([
+        (cb) => ipfs.object.get(argv.ref, {enc: 'base58'}, cb),
+        (linkedObj, cb) => parallel([
+          (cb) => linkedObj.size(cb),
+          (cb) => linkedObj.multihash(cb)
+        ], cb)
+      ], (err, stats) => {
+        if (err) {
+          return cb(err)
+        }
+
+        const link = new DAGLink(argv.name, stats[0], stats[1])
+        ipfs.object.patch.addLink(argv.root, link, {enc: 'base58'}, cb)
+      }),
+      (node, cb) => node.toJSON(cb)
+    ], (err, node) => {
       if (err) {
         throw err
       }
 
-      ipfs.object.get(argv.ref, {enc: 'base58'}).then((linkedObj) => {
-        const link = new DAGLink(
-          argv.name,
-          linkedObj.size(),
-          linkedObj.multihash()
-        )
-        return ipfs.object.patch.addLink(argv.root, link, {enc: 'base58'})
-      }).then((node) => {
-        console.log(node.toJSON().Hash)
-      }).catch((err) => {
-        throw err
-      })
+      console.log(node.Hash)
     })
   }
 }
